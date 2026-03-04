@@ -290,7 +290,7 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch \
 
 #### Data Configuration
 - `--image-data-path`: Path to evaluation dataset
-- `--image-dataset`: Dataset name (Cars, CIFAR-10, ImageNet, etc.)
+- `--image-dataset`: Dataset name (Cars, DTD, etc.)
 - `DATA.NUM_CLASSES`: Number of classes in evaluation dataset
 - `DATA.IMG_SIZE`: Input image size (224)
 - `AUG.PRESET`: Data augmentation preset (none for zero-shot)
