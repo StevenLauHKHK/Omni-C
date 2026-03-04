@@ -11,8 +11,6 @@ from utils.wiki import WiKiDataset
 from utils.newsgroups20 import Newsgroups20Dataset
 from utils.image_dataset import ImageDataset
 from utils.audio_dataset import AudioDataset
-from utils.downstream_dataset import DownStreamDataset
-from utils.downstream_audio_dataset import DownStreamAudioDataset
 
 class SingleModalityDataLoader:
     def __init__(self, modality, dataset, dataset_path=None, batch_size=32, num_workers=8, shuffle=True, config=None, args=None, max_batches=None, is_train=True, is_train_img_transform=True, audio_augmentation=False, text_augmentation=False, distributed=False, num_tasks=1, rank=0, text_seq_len=512, enable_nsp=False, return_type='no_pt', return_double_augmentations=False, clip_align=False, extract_align_feature=False):
@@ -51,8 +49,6 @@ class SingleModalityDataLoader:
                 image_dataset = CC3MDataset(os.path.join(image_dataset_path, 'metadata', 'cc3m_' + prefix + '_format.json'), os.path.join(image_dataset_path, 'images'), os.path.join(image_dataset_path, 'metadata'), transform=image_transform, text_seq_len=text_seq_len, clip_align=clip_align)
             elif dataset[modality] in ['Cars', 'DTD', 'EuroSAT', 'GTSRB', 'MNIST', 'RESISC45', 'SUN397', 'SVHN', 'KITTI', 'SUN397']:
                 image_dataset = ImageDataset(os.path.join(image_dataset_path, prefix), os.path.join(image_dataset_path, prefix + '.json'),  os.path.join(image_dataset_path, 'classes.json'), transform=image_transform, return_double_augmentations=return_double_augmentations, clip_align=clip_align, clip_fine_tune=True, dataset=dataset[modality])
-            elif dataset[modality] in ['downstream_Cars', 'downstream_DTD', 'downstream_EuroSAT', 'downstream_GTSRB', 'downstream_MNIST', 'downstream_RESISC45', 'downstream_SUN397', 'downstream_SVHN', 'downstream_KITTI', 'downstream_SUN397']:
-                image_dataset = DownStreamDataset(image_dataset_path, os.path.join(image_dataset_path, prefix + '.json'), prefix, return_type=return_type)
             else:
                 raise ValueError("Unsupported image dataset")
             modality_dataset = image_dataset
@@ -82,14 +78,6 @@ class SingleModalityDataLoader:
                 audio_dataset = AudioDataset(audio_dataset_path, os.path.join(audio_dataset_path,'speech_commands_' + prefix + '.json'), os.path.join(audio_dataset_path, 'class_mapping_inverse.json'), config, prefix, audio_augmentation=audio_augmentation)
             elif dataset[modality] == 'nsynth':
                 audio_dataset = AudioDataset(os.path.join(audio_dataset_path, 'nsynth-' + prefix, 'audio'), os.path.join(audio_dataset_path,'nsynth_' + prefix + '.json'), os.path.join(audio_dataset_path, 'class_mapping.json'), config, prefix, audio_augmentation=audio_augmentation)
-            elif dataset[modality] in 'downstream_vggsound':
-                audio_dataset = DownStreamAudioDataset(audio_dataset_path, os.path.join(audio_dataset_path, 'vggsound_' + prefix + '.json'), os.path.join(audio_dataset_path, 'class_mapping.json'), config, prefix, clip_preprocess=None)
-            elif dataset[modality] == 'downstream_epicsound':
-                audio_dataset = DownStreamAudioDataset(os.path.join(audio_dataset_path, 'EPIC-Sounds-100-wav-' + prefix + '-by-id'), os.path.join(audio_dataset_path,'epicsound_' + prefix + '.json'), os.path.join(audio_dataset_path, 'class_mapping.json'), config, prefix, clip_preprocess=None)
-            elif dataset[modality] == 'downstream_speechcommand':
-                audio_dataset = DownStreamAudioDataset(audio_dataset_path, os.path.join(audio_dataset_path, 'speech_commands_' + prefix + '.json'), os.path.join(audio_dataset_path, 'class_mapping.json'), config, prefix, clip_preprocess=None)
-            elif dataset[modality] == 'downstream_nsynth':
-                audio_dataset = DownStreamAudioDataset(os.path.join(audio_dataset_path,'nsynth-' + prefix, 'audio'), os.path.join(audio_dataset_path, 'nsynth_' + prefix + '.json'), os.path.join(audio_dataset_path, 'class_mapping.json'), config, prefix, clip_preprocess=None)
             else:
                 raise ValueError("Unsupported audio dataset")
             modality_dataset = audio_dataset

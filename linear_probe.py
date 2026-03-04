@@ -17,7 +17,6 @@ import torch.nn.functional as F
 
 from models.ViT import MaskedAutoencoderViT
 from models.SimCLR_ViT import SimCLRViT
-from models.SimCLR_ViT_V2 import SimCLRViTV2
 from models.SimCLR_ViT_SBoRA import SimCLRViT_SBoRA
 from models.Align_Encoder import AlignEncoder
 from utils.dataloader import MultimodalDataLoader, SingleModalityDataLoader
@@ -50,6 +49,7 @@ def parse_option():
     parser.add_argument('--accum-iter', default=1, type=int, help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
     parser.add_argument('--num-workers', default=32, type=int, help="Number of data loading threads")
     parser.add_argument('--resume-checkpoint', default=None, help='Resume checkpoint path')
+    parser.add_argument('--resume-linear-probe-checkpoint', default=None, help='Resume checkpoint path')
     parser.add_argument('--checkpoint-dir', default="checkpoints", type=str, help="Directory to save checkpoints")
     parser.add_argument('--debug-dir', default="debug_outputs", type=str, help="Directory to save debug outputs")
     parser.add_argument('--seed', default=42, type=int, help="Random seed for reproducibility")
@@ -67,17 +67,12 @@ def parse_option():
     
     
     # training arguments
-    parser.add_argument('--linear-probe', action='store_true', help='Perform linear probe only')
     parser.add_argument('--early_stop_patience', default=3, type=int, help='Early stopping patience epochs')
     parser.add_argument('--eval_every_n', default=1, type=int, help='Number of epochs for evaluation')
     parser.add_argument('--save_every_n', default=1, type=int, help='Number of epochs for saving a checkpoint')
     parser.add_argument('--image-only-epochs', default=0, type=int, help='Number of epochs to train on image modality only before multimodal training')
-    parser.add_argument('--train-single-modality', action='store_true', help='Train on a single modality only')
     parser.add_argument('--single-modality', type=str, choices=['image', 'audio', 'text'], help='Specify which modality to train on')
     parser.add_argument('--selected-multimodality', type=str, nargs='+', choices=['image', 'audio', 'text'], help='Specify which modalities to include in multimodal training (e.g., --selected-multimodality image audio)')
-    parser.add_argument('--simclr', action='store_true', help='Enable SimCLR training')
-    parser.add_argument('--simclr-linear-probe', action='store_true', help='Enable SimCLR linear probe')
-    parser.add_argument('--simclr-fine-tune', action='store_true', help='Enable SimCLR fine tune')
     parser.add_argument('--max-train-batches', default=None, type=int, help='Maximum number of batches to train per epoch')
     parser.add_argument('--log-file', default="training_log.txt", type=str, help="Path to the log file")  # New argument
     parser.add_argument('--model-size', default='small', choices=['small', 'medium', 'base'], 
@@ -86,8 +81,8 @@ def parse_option():
     # model arguments
     parser.add_argument('--model', default='vit', type=str, help='Model architecture')
 
-    # Optimizer aguments
-    # In config folder
+    # eval arguments
+    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
 
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
@@ -167,12 +162,11 @@ def lr_lambda(epoch):
         return 0.01  # Reduce the learning rate by another 10x at epoch 40
 
 
-def train_linear_probe_one_epoch(model, train_loader, optimizer, epoch, device, config, loss_scaler, modalities=['image', 'audio', 'text'], simclr_linear_probe=False, accumulation_steps=1, is_single_modality=True, max_batches=None, debug_dir="debug_outputs"):
+def train_linear_probe_one_epoch(model, train_loader, optimizer, epoch, device, config, loss_scaler, modalities=['image', 'audio', 'text'], accumulation_steps=1, is_single_modality=True, max_batches=None):
     """
     Conduct linear probe training on a pretrained MAE model.
     """
     print("Starting linear probe training...")
-    os.makedirs(debug_dir, exist_ok=True)
 
     model.train()
     metric_logger = misc.MetricLogger(delimiter="  ")
@@ -237,19 +231,10 @@ def train_linear_probe_one_epoch(model, train_loader, optimizer, epoch, device, 
         # Forward pass through encoder (without gradient computation)
         with torch.no_grad():  # Freeze the encoder
             if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
-                if simclr_linear_probe:
-                    cls_token = model.module.forward_encoder(batch, modality=modality)
-                else:
-                    latent, _, _ = model.module.forward_encoder(batch, mask_ratio=0.0, modality=modality, pretrain=False)  # Use model.module for DataParallel
-                    # cls_token = latent[:, 0]  # Extract the CLS token
-                    cls_token = latent[:, 1:].mean(dim=1)
+                cls_token = model.module.forward_encoder(batch, modality=modality)
             else:
-                if simclr_linear_probe:
-                    cls_token = model.forward_encoder(batch, modality=modality)
-                else:
-                    latent, _, _ = model.forward_encoder(batch, mask_ratio=0.0, modality=modality, pretrain=False)
-                    # cls_token = latent[:, 0]  # Extract the CLS token
-                    cls_token = latent[:, 1:].mean(dim=1)
+                cls_token = model.forward_encoder(batch, modality=modality)
+                
         
         # Only the forward/backward through classifier needs gradients
         # and can use mixed precision
@@ -312,13 +297,12 @@ def train_linear_probe_one_epoch(model, train_loader, optimizer, epoch, device, 
     return metric_logger.loss.global_avg, metric_logger.accuracy.global_avg
 
 
-def validate_linear_probe(model, valid_loader, epoch, device, config, modality, simclr_linear_probe=False, is_single_modality=True, max_batches=None, debug_dir="debug_outputs"):
+def validate_linear_probe(model, valid_loader, epoch, device, config, modality, is_single_modality=True, max_batches=None):
     """
     Validate the linear probe / fine tuning model on the validation set.
     """
 
     print("Starting validation...")
-    os.makedirs(debug_dir, exist_ok=True)
     
     model.eval()
     metric_logger = misc.MetricLogger(delimiter="  ")
@@ -353,19 +337,10 @@ def validate_linear_probe(model, valid_loader, epoch, device, config, modality, 
 
             # Forward pass through encoder
             if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
-                if simclr_linear_probe:
-                    cls_token = model.module.forward_encoder(batch, modality=modality)
-                else:
-                    latent, _, _ = model.module.forward_encoder(batch, mask_ratio=0.0, modality=modality, pretrain=False)  # Use model.module for DataParallel
-                    cls_token = latent[:, 1:].mean(dim=1)
-                    # cls_token = latent[:, 0]  # Extract the CLS token
+                cls_token = model.module.forward_encoder(batch, modality=modality)
             else:
-                if simclr_linear_probe:
-                    cls_token = model.forward_encoder(batch, modality=modality)
-                else:
-                    latent, _, _ = model.forward_encoder(batch, mask_ratio=0.0, modality=modality, pretrain=False)
-                    cls_token = latent[:, 1:].mean(dim=1)
-                    # cls_token = latent[:, 0]  # Extract the CLS token
+                cls_token = model.forward_encoder(batch, modality=modality)
+                
                 
                 
             if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
@@ -437,25 +412,26 @@ def main(args, config, log_file="training_log.txt"):
     epochs_without_improvement = 0
     patience = args.early_stop_patience # stop after args.early_stop_patience epochs without improvement
 
-    train_loader = SingleModalityDataLoader(
-        modality = args.single_modality,
-        dataset={'image': config.DATA.IMAGE_DATASET, 'audio': config.DATA.AUDIO_DATASET, 'text': config.DATA.TEXT_DATASET},
-        batch_size=config.DATA.BATCH_SIZE,
-        num_workers=args.num_workers,
-        shuffle=True,
-        config=config,
-        is_train=True,
-        is_train_img_transform=True,
-        audio_augmentation=True,
-        text_augmentation=True,
-        max_batches=args.max_train_batches,
-        distributed=args.distributed,
-        num_tasks=num_tasks,
-        text_seq_len=config.TEXT.MAX_SEQ_LENGTH if args.single_modality == 'text' else None,
-        rank=global_rank,
-        enable_nsp=config.TEXT.ENABLE_NSP if args.single_modality == 'text' else False,
-        return_double_augmentations=True if args.simclr else False,
-    )
+    if not args.eval:
+        train_loader = SingleModalityDataLoader(
+            modality = args.single_modality,
+            dataset={'image': config.DATA.IMAGE_DATASET, 'audio': config.DATA.AUDIO_DATASET, 'text': config.DATA.TEXT_DATASET},
+            batch_size=config.DATA.BATCH_SIZE,
+            num_workers=args.num_workers,
+            shuffle=True,
+            config=config,
+            is_train=True,
+            is_train_img_transform=True,
+            audio_augmentation=True,
+            text_augmentation=True,
+            max_batches=args.max_train_batches,
+            distributed=args.distributed,
+            num_tasks=num_tasks,
+            text_seq_len=config.TEXT.MAX_SEQ_LENGTH if args.single_modality == 'text' else None,
+            rank=global_rank,
+            enable_nsp=config.TEXT.ENABLE_NSP if args.single_modality == 'text' else False,
+            return_double_augmentations=False,
+        )
 
     valid_loader = SingleModalityDataLoader(
         modality = args.single_modality,
@@ -473,7 +449,7 @@ def main(args, config, log_file="training_log.txt"):
         text_seq_len=config.TEXT.MAX_SEQ_LENGTH if args.single_modality == 'text' else None,
         rank=global_rank,
         enable_nsp=config.TEXT.ENABLE_NSP if args.single_modality == 'text' else False,
-        return_double_augmentations=True if args.simclr else False,
+        return_double_augmentations=False,
     )
         
 
@@ -651,7 +627,6 @@ def main(args, config, log_file="training_log.txt"):
 
     # Optimizer
     # following timm: set wd as 0 for bias and norm layers
-    # Optimizer
     optimizer = optim.AdamW(
         modal_param,
         lr=config.TRAIN.OPTIMIZER.LR,
@@ -661,18 +636,11 @@ def main(args, config, log_file="training_log.txt"):
     )
     loss_scaler = NativeScaler()
 
-    # Mask ratio
-    mask_ratios = {
-        'image': 0.0,  # Default MAE mask ratio
-        'audio': 0.0,
-        'text': 0.0
-    }
-
     
     # Load pretrained weights if available
     start_epoch = 0
     if args.resume_checkpoint and os.path.exists(args.resume_checkpoint):
-        
+        print(f"Loading checkpoint from {args.resume_checkpoint} for linear probe training...")
         checkpoint = torch.load(args.resume_checkpoint, map_location=device)
 
         # Get the checkpoint state dict
@@ -688,27 +656,68 @@ def main(args, config, log_file="training_log.txt"):
 
         model_without_ddp.load_state_dict(filtered_dict)
 
+    if args.resume_linear_probe_checkpoint and os.path.exists(args.resume_linear_probe_checkpoint):
+        checkpoint = torch.load(args.resume_linear_probe_checkpoint, map_location=device)
+        pretrained_dict = checkpoint['model']
+        model_dict = model_without_ddp.state_dict()
+        filtered_dict = {}
+        for k, v in model_dict.items():
+            if k in pretrained_dict and v.shape == pretrained_dict[k].shape:
+                filtered_dict[k] = pretrained_dict[k]
+            else:
+                filtered_dict[k] = v
+                print(f"Skipping parameter {k} with shape mismatch or not found")
+
+        model_without_ddp.load_state_dict(filtered_dict)
+
+        if 'optimizer' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+        if 'scaler' in checkpoint:
+            loss_scaler.load_state_dict(checkpoint['scaler'])
+        if 'scheduler' in checkpoint:
+            scheduler.load_state_dict(checkpoint['scheduler'])
+        try:
+            start_epoch = checkpoint['epoch'] + 1
+            print(f"Resuming from checkpoint: {args.resume_linear_probe_checkpoint}, starting at epoch {start_epoch + 1}")
+        except (IndexError, ValueError):
+            print(f"Could not parse epoch from {args.resume_linear_probe_checkpoint}, starting from epoch 1")
+            start_epoch = 0
+
     # Use the checkpoint directory from the argument
-    checkpoint_dir = args.checkpoint_dir
-    os.makedirs(checkpoint_dir, exist_ok=True)
+    if not args.eval:
+        checkpoint_dir = args.checkpoint_dir
+        os.makedirs(checkpoint_dir, exist_ok=True)
 
     
     if misc.is_main_process():
         print(f"Starting training for {config.TRAIN.EPOCHS} epochs...")
+        if not os.path.exists(args.log_file):
+            os.makedirs(os.path.dirname(args.log_file), exist_ok=True)
         with open(args.log_file, 'a') as f:  # Use the log_file argument from args
             f.write(f"Linear Probe started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
+    # for evaluation-only mode, we skip the training loop and directly evaluate the model
+    if args.eval:
+        print("Evaluation-only mode activated. Skipping training loop.")
+        modality = args.single_modality
+
+        val_loss, accuracy = validate_linear_probe(model, valid_loader, start_epoch, device, config, modality, is_single_modality=True)
+    
+        if misc.is_main_process():
+            log_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Validation Loss: {val_loss:.4f}, Validation Accuracy: {accuracy:.2f}%"
+            print(log_msg)
+            with open(args.log_file, 'a') as f:
+                f.write(log_msg + "\n")
+        return
+
+    # Main training loop
     for epoch in range(start_epoch, config.TRAIN.EPOCHS):
         
-        if args.distributed and args.train_single_modality:
+        if args.distributed:
             train_loader.loader.sampler.set_epoch(epoch)
         
-        elif args.distributed:
-            for loader in train_loader.loaders.values():
-                loader.sampler.set_epoch(epoch)
-        
         print(f"SimCLR linear probe training for epoch {epoch + 1}...")
-        avg_loss, accuracy = train_linear_probe_one_epoch(model, train_loader, optimizer, epoch, device, config, loss_scaler, modalities=args.selected_multimodality, simclr_linear_probe=True, is_single_modality=args.single_modality, debug_dir=args.debug_dir)
+        avg_loss, accuracy = train_linear_probe_one_epoch(model, train_loader, optimizer, epoch, device, config, loss_scaler, modalities=args.selected_multimodality, is_single_modality=args.single_modality)
 
         if misc.is_main_process():
             # Log training progress
@@ -721,24 +730,17 @@ def main(args, config, log_file="training_log.txt"):
         # Save checkpoint
         if (epoch + 1) % args.save_every_n == 0:
             state_dict = model.module.state_dict() if num_gpus > 1 else model.state_dict()
-            if args.linear_probe or args.simclr_linear_probe:
-                misc.save_model(checkpoint_dir, config, epoch, model, model_without_ddp, optimizer, loss_scaler)
-                print(f"Saved checkpoint: {checkpoint_dir}")
-            else:
-                misc.save_model(checkpoint_dir, config, epoch, model, model_without_ddp, optimizer, loss_scaler)
-                print(f"Saved checkpoint: {checkpoint_dir}")
+            misc.save_model(checkpoint_dir, config, epoch, model, model_without_ddp, optimizer, loss_scaler)
+            print(f"Saved checkpoint: {checkpoint_dir}")
 
         # Evaluation (if needed)
         if (epoch + 1) % args.eval_every_n == 0:
             print(f"Evaluating model at epoch {epoch+1}...")
             # Add evaluation logic here if required
             
-            if args.train_single_modality:
-                modality = args.single_modality
-            else:
-                modality = 'mix'
+            modality = args.single_modality
 
-            val_loss, accuracy = validate_linear_probe(model, valid_loader, epoch, device, config, modality, simclr_linear_probe=True, is_single_modality=args.train_single_modality)
+            val_loss, accuracy = validate_linear_probe(model, valid_loader, epoch, device, config, modality, is_single_modality=True)
             
                 
             if misc.is_main_process():

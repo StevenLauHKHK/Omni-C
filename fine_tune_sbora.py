@@ -19,7 +19,7 @@ from models.ViT import MaskedAutoencoderViT
 from models.SimCLR_ViT import SimCLRViT
 from models.SimCLR_ViT_SBoRA import SimCLRViT_SBoRA
 from models.Align_Encoder import AlignEncoder
-from utils.dataloader import MultimodalDataLoader
+from utils.dataloader import MultimodalDataLoader, SingleModalityDataLoader
 from config.config import get_config
 from utils.simclr_loss import NTXentLoss
 import utils.misc as misc
@@ -48,7 +48,7 @@ def parse_option():
     parser.add_argument('--test-batch-size', default=128, type=int, help="Test batch size for single GPU")
     parser.add_argument('--accum-iter', default=1, type=int, help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
     parser.add_argument('--num-workers', default=32, type=int, help="Number of data loading threads")
-    parser.add_argument('--resume-checkpoint', default=None, help='Resume checkpoint path')
+    parser.add_argument('--resume-fine-tune-checkpoint', default=None, help='Resume checkpoint path')
     parser.add_argument('--checkpoint-dir', default="checkpoints", type=str, help="Directory to save checkpoints")
     parser.add_argument('--debug-dir', default="debug_outputs", type=str, help="Directory to save debug outputs")
     parser.add_argument('--seed', default=42, type=int, help="Random seed for reproducibility")
@@ -56,25 +56,41 @@ def parse_option():
     # Dataset arguments
     parser.add_argument('--image-data-path', default='/path/to/tiny-imagenet/', type=str, help='Path to image dataset')
     parser.add_argument('--image-dataset', default='tiny_imagenet', type=str, help='Image dataset name')
+    parser.add_argument('--multi-image-data-paths', nargs=2, type=str, help='Paths to two image datasets (e.g., Tiny-ImageNet and CIFAR-100)')
+    parser.add_argument('--multi-image-datasets', nargs=2, type=str, help='Names of the two image datasets (e.g., tiny_imagenet and cifar100)')
     parser.add_argument('--audio-data-path', default='/path/to/audioset/', type=str, help='Path to audio dataset')
+    parser.add_argument('--audio-data-path-2', default='/path/to/librispeech/', type=str, help='Path to audio dataset')
     parser.add_argument('--audio-dataset', default='vggsound', type=str, help='Audio dataset name')
     parser.add_argument('--text-data-path', default='/path/to/AG_NEWS/', type=str, help='Path to text dataset')
     parser.add_argument('--text-dataset', default='agnews', type=str, help='Text dataset name')
+    
     
     # training arguments
     parser.add_argument('--early_stop_patience', default=3, type=int, help='Early stopping patience epochs')
     parser.add_argument('--eval_every_n', default=1, type=int, help='Number of epochs for evaluation')
     parser.add_argument('--save_every_n', default=1, type=int, help='Number of epochs for saving a checkpoint')
+    parser.add_argument('--image-only-epochs', default=0, type=int, help='Number of epochs to train on image modality only before multimodal training')
     parser.add_argument('--single-modality', type=str, choices=['image', 'audio', 'text'], help='Specify which modality to train on')
     parser.add_argument('--selected-multimodality', type=str, nargs='+', choices=['image', 'audio', 'text'], help='Specify which modalities to include in multimodal training (e.g., --selected-multimodality image audio)')
-    parser.add_argument('--simclr', action='store_true', help='Enable SimCLR training')
     parser.add_argument('--max-train-batches', default=None, type=int, help='Maximum number of batches to train per epoch')
     parser.add_argument('--log-file', default="training_log.txt", type=str, help="Path to the log file")  # New argument
+    
+    # eval arguments
+    parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     
     # model arguments
     parser.add_argument('--model', default='vit', type=str, help='Model architecture')
     parser.add_argument('--model-size', default='small', choices=['small', 'medium', 'base'], 
                         help="Choose the model size: 'small', 'medium', or 'base'")
+
+    # sbora arguments
+    parser.add_argument('--sbora-rank', default=4, type=int, help='SBoRA rank')
+    parser.add_argument('--sbora-alpha', default=16, type=int, help='SBoRA alpha scaling factor')
+    parser.add_argument('--sbora-dropout', default=0.1, type=float, help='SBoRA dropout rate')
+    parser.add_argument('--sbora-mode', default='FA', choices=['FA', 'FB'], help='SBoRA mode: FA or FB')
+    parser.add_argument('--sbora-base-checkpoint', default=None, type=str, help='Path to base model checkpoint for loading')
+    parser.add_argument('--disable-sbora-gradients', action='store_true', help='Disable SBoRA gradient')
+    parser.add_argument('--freeze-patch-embedding', action='store_true', help='Freeze patch embedding layers')
 
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
@@ -153,254 +169,81 @@ def get_scheduler(optimizer, total_epochs, warmup_epochs, scheduler_type='cosine
         return LambdaLR(optimizer, lr_lambda)
 
 
-def save_augmented_images(batch1, batch2, labels, save_dir, batch_idx, num_images=8, mean=None, std=None):
+def train_fine_tune_one_epoch(model, train_loader, optimizer, epoch, device, config, loss_scaler, accumulation_steps=1, is_single_modality=True, max_batches=None):
     """
-    Save augmented image pairs for SimCLR contrastive learning visualization.
-    
-    Args:
-        batch1: First augmented batch [B, C, H, W]
-        batch2: Second augmented batch [B, C, H, W]
-        labels: Labels for the batch [B]
-        save_dir: Directory to save images
-        batch_idx: Batch index for naming
-        num_images: Number of image pairs to save
-        mean: Normalization mean for denormalization
-        std: Normalization std for denormalization
+    Conduct fine tuning on a pretrained simclr model.
     """
-    os.makedirs(save_dir, exist_ok=True)
-    
-    # Use default ImageNet normalization if not provided
-    if mean is None:
-        mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(batch1.device)
-    if std is None:
-        std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(batch1.device)
-    
-    # Denormalize images
-    batch1_denorm = batch1 * std + mean
-    batch2_denorm = batch2 * std + mean
-    
-    # Clamp to valid range
-    batch1_denorm = torch.clamp(batch1_denorm, 0, 1)
-    batch2_denorm = torch.clamp(batch2_denorm, 0, 1)
-    
-    # Limit number of images to save
-    num_images = min(num_images, batch1.size(0))
-
-        # Save individual image pairs
-    for i in range(num_images):
-        label = labels[i].item() if labels is not None else 'unknown'
-        
-        # Save first augmentation
-        torchvision.utils.save_image(
-            batch1_denorm[i], 
-            os.path.join(save_dir, f'batch_{batch_idx}_img_{i}_label_{label}_aug1.png')
-        )
-        
-        # Save second augmentation
-        torchvision.utils.save_image(
-            batch2_denorm[i], 
-            os.path.join(save_dir, f'batch_{batch_idx}_img_{i}_label_{label}_aug2.png')
-        )
-    
-    # Create a comparison grid showing pairs side by side
-    if num_images >= 4:
-        # Create grid with pairs side by side
-        grid_images = []
-        for i in range(min(4, num_images)):  # Show up to 4 pairs
-            grid_images.extend([batch1_denorm[i], batch2_denorm[i]])
-        
-        # Create 2x4 grid (2 rows, 4 columns) showing 4 pairs
-        grid = torchvision.utils.make_grid(grid_images, nrow=4, padding=2, pad_value=1.0)
-        torchvision.utils.save_image(
-            grid, 
-            os.path.join(save_dir, f'batch_{batch_idx}_augmentation_pairs_grid.png')
-        )
-    
-    print(f"Saved {num_images} augmented image pairs to {save_dir}")
-
-def save_augmented_spectrograms(batch1, batch2, labels, save_dir, batch_idx, num_spectrograms=5):
-    """
-    Save augmented spectrogram pairs for SimCLR contrastive learning visualization.
-    
-    Args:
-        batch1: First augmented batch [B, C, F, T]
-        batch2: Second augmented batch [B, C, F, T]
-        labels: Labels for the batch [B] or [B, num_classes] for one-hot
-        save_dir: Directory to save spectrograms
-        batch_idx: Batch index for naming
-        num_spectrograms: Number of spectrogram pairs to save
-    """
-    os.makedirs(save_dir, exist_ok=True)
-    
-    # Denormalization parameters (adjust based on your audio config)
-    norm_mean = -4.2677393
-    norm_std = 4.5689974
-    
-    # Denormalize spectrograms
-    batch1_denorm = batch1 * (norm_std * 2) + norm_mean
-    batch2_denorm = batch2 * (norm_std * 2) + norm_mean
-    
-    # Limit number of spectrograms to save
-    num_spectrograms = min(num_spectrograms, batch1.size(0))
-    
-    for i in range(num_spectrograms):
-        if labels is not None:
-            # Handle one-hot encoded labels
-            if len(labels.shape) > 1 and labels.shape[1] > 1:
-                # One-hot encoded labels - get indices of all active classes
-                active_classes = torch.where(labels[i] == 1)[0]
-                if len(active_classes) > 0:
-                    # Convert to list of integers and join with underscores
-                    label_str = '_'.join([str(cls.item()) for cls in active_classes])
-                else:
-                    label_str = 'no_label'
-            else:
-                # Regular integer labels
-                label_str = str(labels[i].item())
-        else:
-            label_str = 'unknown'
-        
-        # Create figure for this spectrogram pair
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-
-        # First augmentation
-        axes[0].imshow(
-            batch1_denorm[i].cpu().detach().numpy().squeeze(), 
-            aspect='auto', origin='lower', cmap='viridis'
-        )
-        axes[0].set_title(f"Augmentation 1 (Label: {label_str})")
-        axes[0].set_xlabel("Time Frames")
-        axes[0].set_ylabel("Frequency Bins")
-        
-        # Second augmentation  
-        axes[1].imshow(
-            batch2_denorm[i].cpu().detach().numpy().squeeze(), 
-            aspect='auto', origin='lower', cmap='viridis'
-        )
-        axes[1].set_title(f"Augmentation 2 (Label: {label_str})")
-        axes[1].set_xlabel("Time Frames")
-        axes[1].set_ylabel("Frequency Bins")
-        
-        plt.tight_layout()
-        plt.savefig(
-            os.path.join(save_dir, f'batch_{batch_idx}_spec_{i}_label_{label_str}_aug_pair.png'), 
-            dpi=150, bbox_inches='tight'
-        )
-        plt.close()
-    
-    print(f"Saved {num_spectrograms} augmented spectrogram pairs to {save_dir}")
-
-def save_augmented_text(batch1, batch2, labels, save_dir, batch_idx, vocab, num_sentences=5):
-    """
-    Save augmented text pairs for SimCLR contrastive learning visualization.
-    
-    Args:
-        batch1: First augmented batch [B, L] - token IDs
-        batch2: Second augmented batch [B, L] - token IDs  
-        labels: Labels for the batch [B]
-        save_dir: Directory to save text
-        batch_idx: Batch index for naming
-        vocab: Vocabulary dictionary mapping token IDs to tokens
-        num_sentences: Number of sentence pairs to save
-    """
-    if vocab is None:
-        print("Vocabulary not provided, skipping text augmentation saving")
-        return
-        
-    os.makedirs(save_dir, exist_ok=True)
-    
-    # Convert token IDs to text
-    batch1_tokens = batch1.cpu().numpy()
-    batch2_tokens = batch2.cpu().numpy()
-    
-    # Limit number of sentences to save
-    num_sentences = min(num_sentences, batch1.size(0))
-    
-    with open(os.path.join(save_dir, f'batch_{batch_idx}_augmented_text_pairs.txt'), 'w') as f:
-        f.write("SimCLR Augmented Text Pairs\n")
-        f.write("=" * 60 + "\n\n")
-        
-        for i in range(num_sentences):
-            label = labels[i].item() if labels is not None else 'unknown'
-            
-            # Convert first augmentation to text
-            tokens1 = [vocab.get(int(t), "[UNK]") for t in batch1_tokens[i] if t != 0]  # Skip padding
-            text1 = " ".join(tokens1)
-            
-            # Convert second augmentation to text
-            tokens2 = [vocab.get(int(t), "[UNK]") for t in batch2_tokens[i] if t != 0]  # Skip padding
-            text2 = " ".join(tokens2)
-
-            f.write(f"Pair {i+1} (Label: {label})\n")
-            f.write(f"Augmentation 1: {text1}\n")
-            f.write(f"Augmentation 2: {text2}\n")
-            f.write("-" * 60 + "\n\n")
-    
-    print(f"Saved {num_sentences} augmented text pairs to {save_dir}")
-
-
-def train_simclr_one_epoch(model, model_without_ddp, train_loader, optimizer, epoch, device, loss_scaler, config, modalities=['image', 'audio', 'text'], accumulation_steps=1, debug_dir="debug_outputs", max_batches=None, is_single_modality=False, temperature=0.5):
-    """
-    Train the model using SimCLR contrastive learning for one epoch.
-    """
-    print(f"Starting SimCLR training for epoch {epoch + 1}...")
-    os.makedirs(debug_dir, exist_ok=True)
+    print("Starting fine tuning...")
 
     model.train()
     metric_logger = misc.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Epoch: [{}]'.format(epoch)
+    header = 'Epoch: [{}]'.format(epoch + 1)
     print_freq = 20
-    
-    # Initialize counts for each modality
-    iter_counters = {}
-    for modality in modalities:
-        iter_counters[modality] = 0
 
+    # Initialize counts for each modality
+    iter_counters = {'image': 0, 'audio': 0, 'text': 0}
     if is_single_modality:
         num_modalities = 1
     else:
         num_modalities = len(iter_counters)
 
-
-    
-    contrastive_loss_fn = NTXentLoss(temperature=temperature)
+    # Initialize tracking variables for accuracy
+    total = 0
+    correct = 0
 
     optimizer.zero_grad()
 
-    for data_iter_step, (batch1, batch2, labels, modalities) in enumerate(metric_logger.log_every(train_loader, print_freq, header)):
+    for data_iter_step, (batch, labels, modalities) in enumerate(metric_logger.log_every(train_loader, print_freq, header)):
         if max_batches is not None and data_iter_step >= max_batches:
             print(f"Stopping training after {max_batches} batches (max-train-batches reached).")
             break
 
-        batch1 = batch1.to(device, non_blocking=True)
-        batch2 = batch2.to(device, non_blocking=True)
+        # Move data to device
+        batch = batch.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
         modality = modalities[0]
 
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accumulation_steps == 0:
-            adjust_learning_rate(optimizer, (iter_counters[modality] / len(train_loader) * num_modalities) + epoch, config)
-            # print(f"Adjusting learning rate for {modality} at step {data_iter_step}, epoch {((iter_counters[modality] / len(train_loader) / num_modalities) + epoch):.2f}, counter {iter_counters[modality]}")
+            adjust_learning_rate(optimizer, data_iter_step / len(train_loader) + epoch, config)
 
         # Increment the counter for the current modality
         iter_counters[modality] += 1
 
+        # Only the forward/backward through classifier needs gradients
+        # and can use mixed precision
         with torch.cuda.amp.autocast():
-            # Forward pass
-            z1, z2 = model(batch1, batch2, modality)
-            # Compute contrastive loss
-            loss = contrastive_loss_fn(z1, z2)
+            # Forward pass through encoder (without gradient computation)
+            if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
+                cls_token = model.module.forward_encoder(batch, modality=modality)
+            else:
+                cls_token = model.forward_encoder(batch, modality=modality)
 
-        
+            if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
+                logits = model.module.linear_classifier(cls_token)
+            else:
+                logits = model.linear_classifier(cls_token)
+
+            loss = nn.CrossEntropyLoss()(logits, labels)
+            
+        # Calculate accuracy
+        _, predicted = logits.max(1)
+        batch_size = labels.size(0)
+        total += batch_size
+        correct += predicted.eq(labels).sum().item()
+        accuracy = 100. * correct / total
+            
+
         # Ensure loss is a scalar
         loss_value = loss.item()
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
-
+        
         # Normalize loss for gradient accumulation
         loss /= accumulation_steps
-        loss_scaler(loss, optimizer, parameters=model.parameters(), 
+        loss_scaler(loss, optimizer, parameters=model.parameters(), create_graph=False,
                     update_grad=(data_iter_step + 1) % accumulation_steps == 0)
 
         # Zero gradients after accumulation step
@@ -411,36 +254,117 @@ def train_simclr_one_epoch(model, model_without_ddp, train_loader, optimizer, ep
 
         # Reduce loss across processes for distributed training
         loss_value_reduce = misc.all_reduce_mean(loss_value)
-        
+        accuracy_value_reduce = misc.all_reduce_mean(accuracy)
+
         # Update MetricLogger with modality-specific losses
         metric_logger.update(**{f"loss_{modality}": loss_value_reduce})
         metric_logger.update(loss=loss_value_reduce)
+        metric_logger.update(accuracy=accuracy_value_reduce)
 
-        lr = optimizer.param_groups[0]["lr"]
-        metric_logger.update(lr=lr)
+        min_lr = 10.0
+        max_lr = 0.0
+        for group in optimizer.param_groups:
+            min_lr = min(min_lr, group['lr'])
+            max_lr = max(max_lr, group['lr'])
 
-        # Save debug outputs every 100 batches
-        if iter_counters[modality] % 100 == 0 and misc.is_main_process():
-            save_dir = os.path.join(debug_dir, f"epoch_{epoch+1}_modality_{modality}_iter_{iter_counters[modality]}")
-            os.makedirs(save_dir, exist_ok=True)
+        metric_logger.update(lr=max_lr)
 
-            if modality == 'image':
-                save_augmented_images(batch1, batch2, labels, save_dir, data_iter_step, num_images=8)
-            elif modality == 'audio':
-                save_augmented_spectrograms(batch1, batch2, labels, save_dir, data_iter_step, num_spectrograms=5)
-            elif modality == 'text':
-                vocab = train_loader.loaders['text'].dataset.vocab  # Ensure vocab is loaded
-                save_augmented_text(batch1, batch2, labels, save_dir, data_iter_step, vocab, num_sentences=5)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-
     # Log metrics
-    print(f"Epoch {epoch} training completed. {metric_logger}")
+    print(f"Epoch {epoch + 1} fine tuning completed. {metric_logger}")
+
+    return metric_logger.loss.global_avg, metric_logger.accuracy.global_avg
 
 
-    return metric_logger.loss.global_avg, {mod: metric_logger.meters[f"loss_{mod}"].global_avg for mod in ['image', 'audio', 'text']}
+def validate_fine_tune(model, valid_loader, epoch, device, config, modality, is_single_modality=True, max_batches=None):
+    """
+    Validate the linear probe / fine tuning model on the validation set.
+    """
 
+    print("Starting validation...")
+    
+    model.eval()
+    metric_logger = misc.MetricLogger(delimiter="  ")
+    header = 'Validation Epoch: [{}]'.format(epoch)
+    print_freq = 20
+
+    # Initialize counts for each modality
+    iter_counters = {'image': 0, 'audio': 0, 'text': 0}
+
+    if is_single_modality:
+        num_modalities = 1
+    else:
+        num_modalities = len(iter_counters)
+
+    # Keep classifier in eval mode too for validation
+    if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
+        model.module.linear_classifier.eval()
+    else:
+        model.linear_classifier.eval()
+
+    # Initialize counters
+    total = 0
+    correct = 0
+
+    with torch.no_grad():
+        for data_iter_step, (batch, labels, modalities) in enumerate(metric_logger.log_every(valid_loader, print_freq, header)):
+            
+            # Move data to device
+            batch = batch.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+            modality = modalities[0]
+
+            # Forward pass through encoder
+            if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
+                cls_token = model.module.forward_encoder(batch, modality=modality)
+            else:
+                cls_token = model.forward_encoder(batch, modality=modality)
+                
+                
+                
+            if isinstance(model, torch.nn.DataParallel) or isinstance(model, torch.nn.parallel.DistributedDataParallel):
+                logits = model.module.linear_classifier(cls_token)
+            else:
+                logits = model.linear_classifier(cls_token)
+            
+            loss = nn.CrossEntropyLoss()(logits, labels)
+
+            # Calculate accuracy
+            _, predicted = logits.max(1)
+            batch_size = labels.size(0)
+            total += batch_size
+            correct += predicted.eq(labels).sum().item()
+            accuracy = 100. * correct / total
+
+            # Update metrics
+            loss_value = loss.item()
+            if not math.isfinite(loss_value):
+                print("Loss is {}, stopping training".format(loss_value))
+                sys.exit(1)
+
+            torch.cuda.synchronize()
+
+            # Reduce loss across processes for distributed training
+            loss_value_reduce = misc.all_reduce_mean(loss_value)
+            accuracy_value_reduce = misc.all_reduce_mean(accuracy)
+
+            # Update metric logger
+            metric_logger.update(**{f"loss_{modality}": loss_value_reduce})
+            metric_logger.update(loss=loss_value_reduce)
+            metric_logger.update(accuracy=accuracy_value_reduce)
+
+    # Gather the stats from all processes
+    metric_logger.synchronize_between_processes()
+
+    # Calculate final metrics
+    avg_loss = metric_logger.loss.global_avg
+    final_accuracy = metric_logger.accuracy.global_avg
+    
+    print(f"Validation - Epoch {epoch} - Loss: {avg_loss:.4f}, Accuracy: {final_accuracy:.2f}%")
+    
+    return avg_loss, final_accuracy
 
 
 
@@ -470,24 +394,45 @@ def main(args, config, log_file="training_log.txt"):
     epochs_without_improvement = 0
     patience = args.early_stop_patience # stop after args.early_stop_patience epochs without improvement
 
-    
-    train_loader = MultimodalDataLoader(
+    # Define the dataloaders
+    if not args.eval:
+        train_loader = SingleModalityDataLoader(
+            modality = args.single_modality,
+            dataset={'image': config.DATA.IMAGE_DATASET, 'audio': config.DATA.AUDIO_DATASET, 'text': config.DATA.TEXT_DATASET},
+            batch_size=config.DATA.BATCH_SIZE,
+            num_workers=args.num_workers,
+            shuffle=True,
+            config=config,
+            is_train=True,
+            is_train_img_transform=True,
+            audio_augmentation=True,
+            text_augmentation=True,
+            max_batches=args.max_train_batches,
+            distributed=args.distributed,
+            num_tasks=num_tasks,
+            text_seq_len=config.TEXT.MAX_SEQ_LENGTH if args.single_modality == 'text' else None,
+            rank=global_rank,
+            enable_nsp=config.TEXT.ENABLE_NSP if args.single_modality == 'text' else False,
+            return_double_augmentations=False
+        )
+
+    valid_loader = SingleModalityDataLoader(
+        modality = args.single_modality,
         dataset={'image': config.DATA.IMAGE_DATASET, 'audio': config.DATA.AUDIO_DATASET, 'text': config.DATA.TEXT_DATASET},
         batch_size=config.DATA.BATCH_SIZE,
         num_workers=args.num_workers,
-        shuffle=True,
+        shuffle=False,
         config=config,
-        is_train=True,
-        is_train_img_transform=True,
-        audio_augmentation=True,
-        text_augmentation=True,
+        is_train=False,
+        is_train_img_transform=False,
+        audio_augmentation=False,
+        text_augmentation=False,
         distributed=args.distributed,
         num_tasks=num_tasks,
-        text_seq_len=config.TEXT.MAX_SEQ_LENGTH,
+        text_seq_len=config.TEXT.MAX_SEQ_LENGTH if args.single_modality == 'text' else None,
         rank=global_rank,
-        accumulate_steps = args.accum_iter,
-        selected_modalities = args.selected_multimodality,
-        return_double_augmentations=True if args.simclr else False,
+        enable_nsp=config.TEXT.ENABLE_NSP if args.single_modality == 'text' else False,
+        return_double_augmentations=False
     )
 
     # Configure model parameters based on the selected size
@@ -516,7 +461,6 @@ def main(args, config, log_file="training_log.txt"):
             }
         else:
             raise ValueError(f"Unknown base model variant: {args.model}")
-    
     elif args.model_size == 'medium':
         if 'M-32' in args.model:
             model_params = {
@@ -542,7 +486,6 @@ def main(args, config, log_file="training_log.txt"):
             }
         else:
             raise ValueError(f"Unknown medium model variant: {args.model}")
-    
     elif args.model_size == 'small':
         if 'S-32' in args.model:
             model_params = {
@@ -571,7 +514,15 @@ def main(args, config, log_file="training_log.txt"):
     else:
         raise ValueError(f"Unknown model size: {args.model_size}")
 
-    model = SimCLRViT(
+
+    sbora_config = {
+        'rank': args.sbora_rank,
+        'alpha': args.sbora_alpha,
+        'dropout': args.sbora_dropout,
+        'mode': args.sbora_mode
+    }
+
+    model = SimCLRViT_SBoRA(
         img_size=(config.DATA.IMG_SIZE, config.DATA.IMG_SIZE),  # ImageNet images are 224x224
         audio_size=(config.AUDIO.MELBINS, config.AUDIO.TARGET_LENGTH),  # Audioset spectrogram size
         text_seq_len=config.TEXT.MAX_SEQ_LENGTH,  # AGNews max sequence length
@@ -582,8 +533,12 @@ def main(args, config, log_file="training_log.txt"):
         num_heads=model_params['num_heads'],
         mlp_ratio=4,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
+        sbora_config=sbora_config,
         split_projector=True,
     ).to(device)
+    
+    start_epoch = 0
+    model.linear_classifier = nn.Linear(model.embed_dim, config.DATA.NUM_CLASSES).to(device)
 
     # Log the model structure to the log file
     if misc.is_main_process():
@@ -597,25 +552,6 @@ def main(args, config, log_file="training_log.txt"):
 
     encoder_params = 0
     other_params = 0
-    
-    # Print encoder parameters
-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    for name, param in model.named_parameters():
-        if "blocks" in name and "decoder_blocks" not in name:
-            encoder_params += param.numel()
-        else:
-            other_params += param.numel()
-    
-        if misc.is_main_process():
-            print('number of trainable params:', n_parameters)
-            print(f"\nTotal Encoder Parameters: {encoder_params}")
-            print(f"Total Other Parameters: {other_params}")
-        
-            # Log to the file
-            with open(args.log_file, 'a') as f:
-                f.write(f"\nTotal Encoder Parameters: {encoder_params}\n")
-                f.write(f"Total Other Parameters: {other_params}\n")
-                f.write(f"Total Parameters: {n_parameters}\n")
 
     eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
     if config.TRAIN.OPTIMIZER.LR is None:
@@ -636,6 +572,7 @@ def main(args, config, log_file="training_log.txt"):
                 f.write(f"{arg}: {getattr(args, arg)}\n")
             f.write("\n")
 
+
     if num_gpus > 1 and not args.distributed:
         model = nn.DataParallel(model)
     
@@ -647,66 +584,168 @@ def main(args, config, log_file="training_log.txt"):
         model_without_ddp = model.module
 
 
-    # following timm: set wd as 0 for bias and norm layers
-    param_groups = optim_factory.add_weight_decay(model_without_ddp, config.TRAIN.OPTIMIZER.WEIGHT_DECAY)
+    # Setup SBoRA finetuning if applicable, freeze base weights
+    if args.sbora_base_checkpoint:
+        model_without_ddp.setup_for_sbora_finetuning(args.sbora_base_checkpoint, freeze_base_model=True, device=device)
+    
+    if args.freeze_patch_embedding:
+        print("Freezing patch embedding as per user request.")
+        model_without_ddp.freeze_patch_embedding()
+
+    
+    # Print encoder and decoder parameters separately
+    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    for name, param in model.named_parameters():
+        if "blocks" in name and "decoder_blocks" not in name:
+            encoder_params += param.numel()
+        else:
+            other_params += param.numel()
+    
+    if misc.is_main_process():
+        print('number of trainable params:', n_parameters)
+        print(f"\nTotal Encoder Parameters: {encoder_params}")
+        print(f"Total Other Parameters: {other_params}")
+    
+        # Log to the file
+        with open(args.log_file, 'a') as f:
+            f.write(f"\nTotal Encoder Parameters: {encoder_params}\n")
+            f.write(f"Total Other Parameters: {other_params}\n")
+            f.write(f"Total Parameters: {n_parameters}\n")
+
+    if num_gpus > 1 and not args.distributed:
+        modal_param = model_without_ddp.module.parameters()
+    else:
+        modal_param = model_without_ddp.parameters()
 
     # Optimizer
     optimizer = optim.AdamW(
-        param_groups,
+        modal_param,
         lr=config.TRAIN.OPTIMIZER.LR,
         betas=config.TRAIN.OPTIMIZER.BETAS,
         eps=config.TRAIN.OPTIMIZER.EPS,
         weight_decay=config.TRAIN.OPTIMIZER.WEIGHT_DECAY
     )
+
     loss_scaler = NativeScaler()
-    
+
     # Load pretrained weights if available
     start_epoch = 0
-    if args.resume_checkpoint and os.path.exists(args.resume_checkpoint):
-        checkpoint = torch.load(args.resume_checkpoint, map_location=device)
-        model_without_ddp.load_state_dict(checkpoint['model'])
+    if args.resume_fine_tune_checkpoint and os.path.exists(args.resume_fine_tune_checkpoint):
+        print(f"Resuming fine tuning from checkpoint: {args.resume_fine_tune_checkpoint}")
+        checkpoint = torch.load(args.resume_fine_tune_checkpoint, map_location=device)
+
+        # Get the checkpoint state dict
+        pretrained_dict = checkpoint['model']
+        model_dict = model_without_ddp.state_dict()
+        filtered_dict = {}
+        for k, v in model_dict.items():
+            if k in pretrained_dict and v.shape == pretrained_dict[k].shape:
+                filtered_dict[k] = pretrained_dict[k]
+            else:
+                filtered_dict[k] = v
+                print(f"Skipping parameter {k} with shape mismatch or not found")
+
+        model_without_ddp.load_state_dict(filtered_dict)
+
         if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
         if 'scaler' in checkpoint:
             loss_scaler.load_state_dict(checkpoint['scaler'])
+        if 'scheduler' in checkpoint:
+            scheduler.load_state_dict(checkpoint['scheduler'])
         try:
             start_epoch = checkpoint['epoch'] + 1
-            print(f"Resuming from checkpoint: {args.resume_checkpoint}, starting at epoch {start_epoch + 1}")
+            print(f"Resuming from checkpoint: {args.resume_fine_tune_checkpoint}, starting at epoch {start_epoch + 1}")
         except (IndexError, ValueError):
-            print(f"Could not parse epoch from {args.resume_checkpoint}, starting from epoch 1")
+            print(f"Could not parse epoch from {args.resume_fine_tune_checkpoint}, starting from epoch 1")
             start_epoch = 0
-    
-    
+
+    if args.eval:
+        modality = args.single_modality
+            
+        val_loss, accuracy = validate_fine_tune(model, valid_loader, start_epoch, device, config, modality, is_single_modality=True)
+            
+        if misc.is_main_process():
+            log_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Validation Loss: {val_loss:.4f}, Validation Accuracy: {accuracy:.2f}%"
+            print(log_msg)
+            with open(args.log_file, 'a') as f:
+                f.write(log_msg + "\n")
+        return
+
     # Use the checkpoint directory from the argument
     checkpoint_dir = args.checkpoint_dir
     os.makedirs(checkpoint_dir, exist_ok=True)
-    
+
     if misc.is_main_process():
-        print(f"Starting pretraining for {config.TRAIN.EPOCHS} epochs...")
+        print(f"Starting fine tuning for {config.TRAIN.EPOCHS} epochs...")
         with open(args.log_file, 'a') as f:  # Use the log_file argument from args
             f.write(f"Training started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     for epoch in range(start_epoch, config.TRAIN.EPOCHS):
-
-        for loader in train_loader.loaders.values():
-            loader.sampler.set_epoch(epoch)
         
-        avg_loss, avg_modality_losses = train_simclr_one_epoch(
-            model, model_without_ddp, train_loader, optimizer, epoch, device, loss_scaler, config, modalities=args.selected_multimodality, debug_dir=args.debug_dir, max_batches=args.max_train_batches, temperature=0.5, accumulation_steps=args.accum_iter
-        )
-            
+        if args.distributed:
+            train_loader.loader.sampler.set_epoch(epoch)
+        
+
+        print(f"fine tune training for epoch {epoch + 1}...")
+        
+        avg_loss, accuracy = train_fine_tune_one_epoch(model, train_loader, optimizer, epoch, device, config, loss_scaler)
+
         if misc.is_main_process():
-            # Basic training progress log
-            log_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Epoch {epoch+1}/{config.TRAIN.EPOCHS}, Loss: {avg_loss:.4f}, Image Loss: {avg_modality_losses['image']:.4f}, Audio Loss: {avg_modality_losses['audio']:.4f}, Text Loss: {avg_modality_losses['text']:.4f}"
+            # Log training progress
+            log_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Epoch {epoch+1}/{config.TRAIN.EPOCHS}, Loss: {avg_loss:.4f}, Training Accuracy: {accuracy:.2f}%"
             print(log_msg)
-            with open(args.log_file, 'a') as f:
+            with open(args.log_file, 'a') as f:  # Use the log_file argument from args
                 f.write(log_msg + "\n")
 
         # Save checkpoint
         if (epoch + 1) % args.save_every_n == 0:
             state_dict = model.module.state_dict() if num_gpus > 1 else model.state_dict()
-            misc.save_model(checkpoint_dir, config, epoch, model, model_without_ddp, optimizer, loss_scaler)
-            print(f"Saved checkpoint: {checkpoint_dir}")
+            if args.linear_probe or args.simclr_linear_probe:
+                misc.save_model(checkpoint_dir, config, epoch, model, model_without_ddp, optimizer, loss_scaler)
+                print(f"Saved checkpoint: {checkpoint_dir}")
+            else:
+                misc.save_model(checkpoint_dir, config, epoch, model, model_without_ddp, optimizer, loss_scaler)
+                print(f"Saved checkpoint: {checkpoint_dir}")
+
+        # Evaluation (if needed)
+        if (epoch + 1) % args.eval_every_n == 0:
+            print(f"Evaluating model at epoch {epoch+1}...")
+            # Add evaluation logic here if required
+
+            modality = args.single_modality
+            
+            val_loss, accuracy = validate_fine_tune(model, valid_loader, epoch, device, config, modality, is_single_modality=True)
+                
+            if misc.is_main_process():
+                log_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Validation Loss: {val_loss:.4f}, Validation Accuracy: {accuracy:.2f}%"
+                print(log_msg)
+                with open(args.log_file, 'a') as f:
+                    f.write(log_msg + "\n")
+
+                if accuracy > best_val_accuracy:
+                    best_val_accuracy = accuracy
+                    epochs_without_improvement = 0
+                    # Save the best model
+                    misc.save_model(checkpoint_dir, config, epoch, model, model_without_ddp, optimizer, loss_scaler, best=True)
+                    print(f"New best model saved with accuracy: {best_val_accuracy:.2f}%")
+                else:
+                    epochs_without_improvement += 1
+                    print(f"No improvement in validation accuracy for {epochs_without_improvement} evaluation(s). Best accuracy remains: {best_val_accuracy:.2f}%")
+    
+                with open(args.log_file, 'a') as f:
+                    f.write(f"Best validation accuracy so far: {best_val_accuracy:.2f}%\n")
+
+                # Early stopping check
+                if epochs_without_improvement >= patience:
+                    print(f"Early stopping triggered after {epochs_without_improvement} evaluations without improvement.")
+                    with open(args.log_file, 'a') as f:
+                        f.write(f"Early stopping triggered after {epochs_without_improvement} evaluations without improvement at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    return
+                
+                    
+                        
+                        
 
 
 if __name__ == "__main__":
