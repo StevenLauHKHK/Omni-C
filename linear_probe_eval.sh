@@ -15,7 +15,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --image-dataset Cars \
         --selected-multimodality image \
         --log-file linear_probe_eval_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_Cars_bs128_ddp.txt \
-        --resume-linear-probe-checkpoint /data2/steven/MAE_25072025/linear_probe_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_linear_probe_cars_bs128_ddp/checkpoint-best.pth \
+        --resume-linear-probe-checkpoint linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_Cars_bs128_ddp/checkpoint-best.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \

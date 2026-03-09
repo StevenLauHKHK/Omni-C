@@ -14,7 +14,7 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch \
         --image-dataset Cars \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_tune_Cars_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -40,7 +40,7 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch \
         --image-dataset DTD \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_DTD_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -65,7 +65,7 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch \
         --image-dataset EuroSAT \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_EuroSAT_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -92,7 +92,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --image-dataset GTSRB \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_GTSRB_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --accum-iter 1 \
         --save_every_n 1 \
         --eval_every_n 1 \
@@ -117,7 +117,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --image-dataset KITTI \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_KITTI_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --accum-iter 1 \
         --save_every_n 1 \
         --eval_every_n 1 \
@@ -142,7 +142,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --image-dataset MNIST \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_MNIST_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -168,7 +168,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --image-dataset RESISC45 \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_RESISC45_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -194,7 +194,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --image-dataset SUN397 \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_SUN397_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -220,7 +220,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --image-dataset SVHN \
         --selected-multimodality image \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_SVHN_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -249,7 +249,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --audio-dataset vggsound \
         --selected-multimodality audio \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_vggsound_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -275,7 +275,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --audio-dataset epicsound \
         --selected-multimodality audio \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_epicsound_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -301,7 +301,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --audio-dataset speechcommand \
         --selected-multimodality audio \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_speechcommand_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -327,7 +327,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --audio-dataset nsynth \
         --selected-multimodality audio \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_nsynth_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -355,7 +355,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --text-dataset agnews \
         --selected-multimodality text \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_agnews_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -381,7 +381,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --text-dataset newsgroups20 \
         --selected-multimodality text \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_newsgroups20_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -407,7 +407,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --text-dataset imdb \
         --selected-multimodality text \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_imdb_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \
@@ -433,7 +433,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --text-dataset carer \
         --selected-multimodality text \
         --log-file zero_shot_checkpoints/train_pretrained_Omni-C_image_audio_text_zero_shot_carer_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 1 \

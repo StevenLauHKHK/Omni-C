@@ -13,9 +13,9 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python -m torch.distributed.launch \
         --selected-multimodality image audio text \
         --model ViT-B-32 \
         --model-size base \
-        --checkpoint-dir pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector \
-        --debug-dir pretrained_checkpoints/debug_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector \
-        --log-file pretrained_checkpoints/train_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector.log \
+        --checkpoint-dir pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text \
+        --debug-dir pretrained_checkpoints/debug__ViT-B-32_Omni-C_image_audio_text \
+        --log-file pretrained_checkpoints/train_ViT-B-32_Omni-C_image_audio_text.log \
         --batch-size 32 \
         --accum-iter 1 \
         --save_every_n 5 \

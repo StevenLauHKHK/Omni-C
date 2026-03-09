@@ -15,7 +15,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_Cars_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_Cars_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -41,7 +41,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_DTD_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_DTD_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -67,7 +67,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_EuroSAT_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_EuroSAT_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -93,7 +93,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_GTSRB_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_GTSRB_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --accum-iter 1 \
         --save_every_n 5 \
         --eval_every_n 1 \
@@ -118,7 +118,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_KITTI_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_KITTI_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --accum-iter 1 \
         --save_every_n 5 \
         --eval_every_n 1 \
@@ -143,7 +143,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_MNIST_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_MNIST_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -169,7 +169,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_RESISC45_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_RESISC45_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -195,7 +195,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_SUN397_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_SUN397_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -221,7 +221,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality image \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_SVHN_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_SVHN_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -249,7 +249,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality audio \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_vggsound_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_vggsound_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -275,7 +275,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality audio \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_epicsound_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_epicsound_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -301,7 +301,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality audio \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_speechcommand_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_speechcommand_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -327,7 +327,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality audio \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_nsynth_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_nsynth_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -355,7 +355,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality text \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_agnews_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_agnews_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -381,7 +381,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality text \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_newsgroups20_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_newsgroups20_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -407,7 +407,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality text \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_imdb_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_imdb_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
@@ -433,7 +433,7 @@ CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch \
         --selected-multimodality text \
         --checkpoint-dir linear_probe_checkpoints/checkpoint_pretrained_Omni-C_image_audio_text_linear_probe_carer_bs128_ddp \
         --log-file linear_probe_checkpoints/train_pretrained_Omni-C_image_audio_text_linear_probe_carer_bs128_ddp.txt \
-        --resume-checkpoint /data2/steven/MAE_25072025/pretrained_checkpoints/checkpoint_mix_modality_vit_base_ps32_image_audio_text_ssl_bs256_ddp_adjust_lr_1e-4_retrain_audio_length_256_and_adjust_scheduler_v3_split_projector/checkpoint-99.pth \
+        --resume-checkpoint pretrained_checkpoints/checkpoint_ViT-B-32_Omni-C_image_audio_text/checkpoint-99.pth \
         --batch-size 128 \
         --accum-iter 1 \
         --save_every_n 5 \
