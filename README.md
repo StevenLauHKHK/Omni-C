@@ -41,13 +41,13 @@ conda env create -f environment.yml
 Omni-C (Image, Audio and Text) [link](https://1drv.ms/f/c/92bd6f3465cb151e/IgDdJoS1x2iLSbJWCD_V1jwZAWGa15jQAFGEoKLPvyWWjws?e=h5E3iW)
 
 ## Pre-training dataset
-* ImageNet-1K:
+### ImageNet-1K:
 - URL of the dataset [link](https://www.image-net.org/download.php)
 
-* AudioSet:
+#### AudioSet:
 - URL of the dataset [link](https://research.google.com/audioset/)
 
-* English Wikipedia:
+#### English Wikipedia:
 - URL of the dataset [link](https://www.kaggle.com/datasets/jjinho/wikipedia-20230701)
 - The binary tokenize file can be generated via (data_preprocess/wiki_cleanup.py)
 - The whole preprocessed dataset can be download [link](https://1drv.ms/f/c/92bd6f3465cb151e/IgBZxV1yDtIDTZrb041c8N7-AZkBfYtzjZ-sGwCSFCrsSQM?e=goP6FC)
