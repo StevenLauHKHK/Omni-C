@@ -25,9 +25,14 @@ class NTXentLoss(torch.nn.Module):
         representations = torch.cat([z_i, z_j], dim=0)  # (2 * batch_size, embed_dim)
         similarity_matrix = torch.mm(representations, representations.T)  # (2 * batch_size, 2 * batch_size)
 
-        # Create labels
-        labels = torch.arange(batch_size, device=z_i.device)
-        labels = torch.cat([labels, labels], dim=0)  # (2 * batch_size)
+        # Create labels that account for the removed diagonal entries.
+        # After masking diagonal, for row k in [0, N): the positive pair (originally
+        # at column k+N) shifts to column k+N-1. For row k in [N, 2N): the positive
+        # pair (originally at column k-N) stays at column k-N.
+        labels = torch.cat([
+            torch.arange(batch_size - 1, 2 * batch_size - 1, device=z_i.device),  # [N-1, N, ..., 2N-2]
+            torch.arange(batch_size, device=z_i.device),                            # [0, 1, ..., N-1]
+        ], dim=0)  # (2 * batch_size)
 
         # Mask out self-similarities
         mask = torch.eye(2 * batch_size, device=z_i.device).bool()
