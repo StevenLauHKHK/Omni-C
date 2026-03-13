@@ -27,11 +27,11 @@ class NTXentLoss(torch.nn.Module):
 
         # Create labels
         labels = torch.arange(batch_size, device=z_i.device)
-        labels = torch.cat([labels, labels], dim=0)  # (2 * batch_size)
+        labels = torch.cat([labels + batch_size - 1, labels], dim=0) # -1 because the self-similarities has been removed
 
         # Mask out self-similarities
         mask = torch.eye(2 * batch_size, device=z_i.device).bool()
-        similarity_matrix = similarity_matrix[~mask].view(2 * batch_size, -1)
+        similarity_matrix = similarity_matrix[~mask].view(2 * batch_size, -1) # Remove self-similarities and reshape to (2 * batch_size, 2 * batch_size - 1)
 
         # Scale by temperature
         similarity_matrix /= self.temperature
