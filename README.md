@@ -6,7 +6,7 @@ Kin Wai Lau, Yasar Abbas Ur Rehman, Lai-Man Po, Pedro Porto Buarque de Gusmão *
 
 [[arXiv paper]](http://arxiv.org/abs/2603.05528)
 
-![Omni-C Architecture](img/Omni-C.png)
+[Omni-C Architecture](img/Omni-C.png)
 
 ## Citing
 
@@ -29,8 +29,6 @@ When using this code, kindly reference:
 - [x] Upload the linear probe and SBoRA fine tuning code  
 - [x] Upload the zero-shot code and eval code
 - [x] Upload the pretraining weights
-- [ ] Upload alignment code and eval code
-- [ ] Upload finetune downstream dataset annotation
 
 
 ## Preparation
